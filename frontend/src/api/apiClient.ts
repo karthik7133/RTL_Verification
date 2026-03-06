@@ -6,7 +6,7 @@
  * This file handles /health, /predict (run details), and /regression-plan.
  */
 
-const ML_BASE = "http://localhost:5001";
+const ML_BASE = import.meta.env.VITE_ML_API_URL || "http://localhost:5001";
 
 // Re-export types used across components
 export type { AnalyzedRun, AnalysisSummary, AnalysisResult } from '../context/CsvContext';
@@ -62,10 +62,9 @@ export const apiClient = {
     },
 
     /**
-     * POST /predict
      * Gets ML prediction for a specific run (used by DetailsPanel).
      */
-    getRunDetails: async (run: any): Promise<RunDetails> => {
+    getRunDetails: async (run: any, modelId: string = "model_1"): Promise<RunDetails> => {
         const payload = {
             code_coverage: run.code_coverage,
             functional_coverage: run.functional_coverage,
@@ -76,6 +75,7 @@ export const apiClient = {
             engineer_experience: run.engineer_experience,
             module: run.module,
             test_name: run.test_name,
+            model_id: modelId
         };
         console.log(`[Client] POST ${ML_BASE}/predict`, payload);
         const res = await fetch(`${ML_BASE}/predict`, {
@@ -99,12 +99,12 @@ export const apiClient = {
      * POST /regression-plan
      * Sends the user's uploaded runs + time budget. Returns optimized order.
      */
-    getSmartPlan: async (runs: any[], budgetSeconds: number): Promise<RegressionPlan> => {
-        console.log(`[Client] POST ${ML_BASE}/regression-plan — ${runs.length} runs, budget: ${budgetSeconds}s`);
+    getSmartPlan: async (runs: any[], budgetSeconds: number, modelId: string = "model_1"): Promise<RegressionPlan> => {
+        console.log(`[Client] POST ${ML_BASE}/regression-plan — ${runs.length} runs, model: ${modelId}`);
         const res = await fetch(`${ML_BASE}/regression-plan`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ runs, time_budget: budgetSeconds }),
+            body: JSON.stringify({ runs, time_budget: budgetSeconds, model_id: modelId }),
             cache: "no-store",
         });
         if (!res.ok) throw new Error(`Regression-plan API error: ${res.status}`);

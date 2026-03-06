@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
 
-const ML_BASE = "http://localhost:5001";
+const ML_BASE = import.meta.env.VITE_ML_API_URL || "http://localhost:5001";
 
 // ── Shared types ──────────────────────────────────────────────────────────────
 export interface AnalyzedRun {
@@ -21,6 +21,18 @@ export interface AnalyzedRun {
     risk_level: "Low" | "Medium" | "High" | "Critical";
 }
 
+export interface RunDetails {
+    // Assuming RunDetails might contain similar prediction fields or more specific ones
+    // For now, let's assume it returns an AnalyzedRun or a subset/superset of it.
+    // This is a placeholder; the actual structure would depend on the API response.
+    failure_probability: number;
+    failure_probability_pct: number;
+    result: "Pass" | "Fail";
+    risk_level: "Low" | "Medium" | "High" | "Critical";
+    // Potentially other fields specific to a single run's detailed analysis
+    // e.g., feature_contributions: { [key: string]: number };
+}
+
 export interface AnalysisSummary {
     total_runs: number;
     fail_count: number;
@@ -29,6 +41,7 @@ export interface AnalysisSummary {
     model_accuracy_pct: number;
     roc_auc: number;
     fairness_score: number;
+    model_name?: string;
 }
 
 export interface AnalysisResult {
@@ -36,6 +49,7 @@ export interface AnalysisResult {
     runs: AnalyzedRun[];
     timestamp: string;
     filename: string;
+    model_id: string;
 }
 
 interface CsvContextValue {
@@ -44,6 +58,8 @@ interface CsvContextValue {
     error: string | null;
     uploadAndAnalyze: (file: File) => Promise<void>;
     clearData: () => void;
+    setSelectedModelId: (id: string) => void;
+    selectedModelId: string;
 }
 
 const CsvContext = createContext<CsvContextValue | null>(null);
@@ -52,48 +68,35 @@ export const CsvProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const [result, setResult] = useState<AnalysisResult | null>(null);
     const [isAnalyzing, setIsAnalyzing] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [selectedModelId, setSelectedModelId] = useState<string>("model_1");
 
     const uploadAndAnalyze = useCallback(async (file: File) => {
         setIsAnalyzing(true);
         setError(null);
-        console.log(`[Client] Uploading CSV: ${file.name} (${(file.size / 1024).toFixed(1)} KB)`);
+        console.log(`[Client] Uploading CSV: ${file.name} using ${selectedModelId}`);
 
         try {
             const formData = new FormData();
             formData.append("file", file);
+            formData.append("model_id", selectedModelId);
 
-            console.log(`[Client] POST ${ML_BASE}/analyze-csv`);
+            console.log(`[Client] POST ${ML_BASE}/analyze-csv (model: ${selectedModelId})`);
             const res = await fetch(`${ML_BASE}/analyze-csv`, {
                 method: "POST",
                 body: formData,
                 cache: "no-store",
             });
-
-            if (!res.ok) {
-                const bodyText = await res.text().catch(() => '');
-                console.error(`[Client] POST /analyze-csv failed — HTTP ${res.status}`);
-                console.error(`[Client] Response body:`, bodyText);
-
-                if (res.status === 404) {
-                    throw new Error(
-                        `404: /analyze-csv endpoint not found. ` +
-                        `The Flask server running on port 5001 is an OLD version (started before the code update). ` +
-                        `Please kill all "python api.py" processes and restart: python api.py`
-                    );
-                }
-                let errMsg = `Server error: ${res.status}`;
-                try { errMsg = JSON.parse(bodyText).error || errMsg; } catch { }
-                throw new Error(errMsg);
-            }
+            if (!res.ok) throw new Error(`API error: ${res.status}`);
 
             const json = await res.json();
-            console.log(`[Client] Analysis received: ${json.runs?.length} runs`);
+            console.log("[Client] Analysis complete:", json.summary);
 
             setResult({
                 summary: json.summary,
                 runs: json.runs,
                 timestamp: json.timestamp,
                 filename: file.name,
+                model_id: json.model_id || selectedModelId
             });
         } catch (err: any) {
             const msg = err.message?.includes("fetch")
@@ -113,7 +116,15 @@ export const CsvProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }, []);
 
     return (
-        <CsvContext.Provider value={{ result, isAnalyzing, error, uploadAndAnalyze, clearData }}>
+        <CsvContext.Provider value={{
+            result,
+            isAnalyzing,
+            error,
+            uploadAndAnalyze,
+            clearData,
+            selectedModelId,
+            setSelectedModelId
+        }}>
             {children}
         </CsvContext.Provider>
     );

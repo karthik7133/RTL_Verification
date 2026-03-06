@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     Search, Filter, ShieldAlert, ArrowUpDown, ChevronRight,
-    UploadCloud, AlertCircle, FileSpreadsheet
+    UploadCloud, AlertCircle, FileSpreadsheet, Cpu, Zap
 } from 'lucide-react';
 import { useCsvData, type AnalyzedRun } from '../context/CsvContext';
 import { apiClient } from '../api/apiClient';
@@ -17,9 +17,45 @@ const StatPill = ({ label, value, accent = 'text-white' }: { label: string; valu
     </div>
 );
 
+// ── Model Selector Toggle ───────────────────────────────────────────────────
+const ModelSelector = () => {
+    const { selectedModelId, setSelectedModelId, isAnalyzing } = useCsvData();
+
+    return (
+        <div className="flex p-1 bg-black/40 border border-white/10 rounded-2xl w-fit self-center">
+            <button
+                disabled={isAnalyzing}
+                onClick={() => setSelectedModelId('model_1')}
+                className={cn(
+                    "flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-bold transition-all duration-300",
+                    selectedModelId === 'model_1'
+                        ? "bg-cyan-500 text-black shadow-[0_0_20px_rgba(6,182,212,0.4)]"
+                        : "text-slate-500 hover:text-slate-300"
+                )}
+            >
+                <Cpu className="w-4 h-4" />
+                XGBoost Precision
+            </button>
+            <button
+                disabled={isAnalyzing}
+                onClick={() => setSelectedModelId('model_2')}
+                className={cn(
+                    "flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-bold transition-all duration-300",
+                    selectedModelId === 'model_2'
+                        ? "bg-purple-500 text-white shadow-[0_0_20px_rgba(168,85,247,0.4)]"
+                        : "text-slate-500 hover:text-slate-300"
+                )}
+            >
+                <Zap className="w-4 h-4" />
+                LightGBM Speed
+            </button>
+        </div>
+    );
+};
+
 // ── Upload prompt (shown before any CSV loaded) ───────────────────────────────
 const UploadPrompt = () => {
-    const { uploadAndAnalyze, isAnalyzing, error } = useCsvData();
+    const { uploadAndAnalyze, isAnalyzing, error, selectedModelId } = useCsvData();
 
     const handleDrop = (e: React.DragEvent) => {
         e.preventDefault();
@@ -39,7 +75,15 @@ const UploadPrompt = () => {
     };
 
     return (
-        <div className="flex flex-col h-full items-center justify-center gap-8">
+        <div className="flex flex-col h-full items-center justify-center gap-6">
+            <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="flex flex-col items-center gap-4"
+            >
+                <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">Select ML Engine</span>
+                <ModelSelector />
+            </motion.div>
             {/* Upload card */}
             <motion.div
                 initial={{ opacity: 0, y: 20 }}
@@ -159,9 +203,17 @@ const Dashboard = () => {
                     <h1 className="text-3xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-slate-400">
                         Failure Prediction
                     </h1>
-                    <p className="text-slate-400 mt-1">
-                        ML analysis of <span className="text-cyan-400 font-medium">{result.filename}</span> · {summary.total_runs} runs
-                    </p>
+                    <div className="flex items-center gap-2 mt-1">
+                        <span className="text-slate-400">
+                            ML analysis of <span className="text-cyan-400 font-medium">{result.filename}</span> · {summary.total_runs} runs
+                        </span>
+                        <span className={cn(
+                            "px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider",
+                            result.model_id === 'model_2' ? "bg-purple-500/20 text-purple-400 border border-purple-500/30" : "bg-cyan-500/20 text-cyan-400 border border-cyan-500/30"
+                        )}>
+                            {summary.model_name || (result.model_id === 'model_2' ? 'LightGBM' : 'XGBoost')}
+                        </span>
+                    </div>
                 </div>
 
                 <div className="flex items-center gap-3 bg-slate-900/50 p-2 rounded-2xl border border-white/5 backdrop-blur-md">
@@ -330,7 +382,7 @@ const Dashboard = () => {
                 isOpen={selectedRun !== null}
                 onClose={() => setSelectedRun(null)}
                 run={selectedRun}
-                getRunDetails={apiClient.getRunDetails}
+                getRunDetails={(run) => apiClient.getRunDetails(run, result.model_id)}
             />
         </div>
     );

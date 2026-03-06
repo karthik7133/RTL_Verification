@@ -17,8 +17,8 @@ const RegressionPlanner = () => {
         setIsGenerating(true);
         setError(null);
         try {
-            // Use the uploaded CSV runs for planning (no hardcoded SAMPLE_RUNS)
-            const result = await apiClient.getSmartPlan(csvResult.runs, Number(budget) || 500);
+            // Use the uploaded CSV runs for planning
+            const result = await apiClient.getSmartPlan(csvResult.runs, Number(budget) || 500, csvResult.model_id);
             setPlan(result);
         } catch (err: any) {
             const msg = err.message?.includes('fetch')
@@ -44,8 +44,7 @@ const RegressionPlanner = () => {
         URL.revokeObjectURL(a.href);
     };
 
-    interface StatCardProps { icon: React.ComponentType<any>; label: string; value: string | number; highlight?: boolean; delay?: number; }
-    const StatCard = ({ icon: Icon, label, value, highlight = false, delay = 0 }: StatCardProps) => (
+    const StatCard = ({ icon: Icon, label, value, highlight = false, delay = 0 }: { icon: any; label: string; value: string | number; highlight?: boolean; delay?: number; }) => (
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay }}
             className={cn("p-6 rounded-2xl border relative overflow-hidden group", highlight ? "bg-slate-900 border-emerald-500/30 shadow-[0_0_25px_rgba(16,185,129,0.15)]" : "bg-slate-900 border-white/5")}>
             <div className={cn("absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500", highlight ? "bg-gradient-to-tr from-emerald-500/10 to-transparent" : "bg-gradient-to-tr from-white/5 to-transparent")} />
@@ -87,9 +86,17 @@ const RegressionPlanner = () => {
                     <h1 className="text-3xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-cyan-400">
                         Smart Planner
                     </h1>
-                    <p className="text-slate-400 mt-2">
-                        AI-optimized order from <span className="text-cyan-400 font-medium">{csvResult.filename}</span> ({csvResult.runs.length} runs)
-                    </p>
+                    <div className="flex items-center gap-3 mt-2">
+                        <p className="text-slate-400">
+                            AI-optimized order from <span className="text-cyan-400 font-medium">{csvResult.filename}</span> ({csvResult.runs.length} runs)
+                        </p>
+                        <span className={cn(
+                            "px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider",
+                            csvResult.model_id === 'model_2' ? "bg-purple-500/20 text-purple-400 border border-purple-500/30" : "bg-cyan-500/20 text-cyan-400 border border-cyan-500/30"
+                        )}>
+                            {csvResult.summary.model_name || (csvResult.model_id === 'model_2' ? 'LightGBM' : 'XGBoost')}
+                        </span>
+                    </div>
                 </div>
 
                 <div className="flex flex-col sm:flex-row items-center gap-4 bg-slate-900/40 p-3 rounded-2xl border border-white/5 backdrop-blur-md">
