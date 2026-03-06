@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import {
     Search, Filter, ShieldAlert, ArrowUpDown, ChevronRight,
     UploadCloud, AlertCircle, FileSpreadsheet, Cpu, Zap
@@ -55,7 +55,7 @@ const ModelSelector = () => {
 
 // ── Upload prompt (shown before any CSV loaded) ───────────────────────────────
 const UploadPrompt = () => {
-    const { uploadAndAnalyze, isAnalyzing, error, selectedModelId } = useCsvData();
+    const { uploadAndAnalyze, isAnalyzing, error } = useCsvData();
 
     const handleDrop = (e: React.DragEvent) => {
         e.preventDefault();
