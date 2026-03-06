@@ -1,3 +1,4 @@
+# Python-specific ignores
 __pycache__/
 *.pyc
 *.pyo
@@ -6,5 +7,16 @@ __pycache__/
 env/
 venv/
 .env
-*.pkl
-model_2_features.json
+
+# Jupyter Notebooks
+.ipynb_checkpoints/
+
+# Data files (Large datasets should be ignored, but keep the pkl/json for deployment)
+rtl_verification_dataset.csv
+rtl_verification_dataset_clean.csv
+
+# Keep model files for Hugging Face deployment
+!*.pkl
+!*.json
+!README.md
+!Dockerfile

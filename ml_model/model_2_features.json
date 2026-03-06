@@ -1,0 +1,21 @@
+[
+  "code_coverage",
+  "functional_coverage",
+  "assertions_failed",
+  "simulation_time",
+  "lines_changed",
+  "previous_failures",
+  "engineer_experience",
+  "change_risk",
+  "module_Bus_Interface",
+  "module_Cache_Controller",
+  "module_DMA_Engine",
+  "module_Instruction_Decoder",
+  "module_Interrupt_Controller",
+  "module_Memory_Controller",
+  "error_type_Deadlock",
+  "error_type_None",
+  "error_type_Overflow",
+  "error_type_Protocol Error",
+  "error_type_Timing Violation"
+]

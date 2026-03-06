@@ -6,7 +6,7 @@
  * This file handles /health, /predict (run details), and /regression-plan.
  */
 
-const ML_BASE = import.meta.env.VITE_ML_API_URL || "http://localhost:5001";
+export const ML_BASE = import.meta.env.VITE_ML_API_URL || "https://karthik7133-sand-disk.hf.space";
 
 // Re-export types used across components
 export type { AnalyzedRun, AnalysisSummary, AnalysisResult } from '../context/CsvContext';

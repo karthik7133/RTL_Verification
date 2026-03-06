@@ -1,0 +1,11 @@
+code_coverage,functional_coverage,assertions_failed,simulation_time,lines_modified,prior_failures,engineer_experience,test_name,module
+85.5,78.2,0,120,5,2,8,test_alu_basic,ALU_Core
+42.1,35.0,15,450,150,8,2,test_mem_boundary,Memory_Controller
+98.2,95.5,0,80,2,0,10,test_reg_reset,Register_File
+65.4,58.9,4,300,45,5,4,test_cache_miss,Cache_Unit
+92.1,88.4,1,150,12,1,7,test_alu_overflow,ALU_Core
+55.3,42.8,7,600,85,12,3,test_dma_burst,DMA_Engine
+78.9,72.1,2,240,30,4,6,test_mem_parity,Memory_Controller
+88.4,82.6,0,110,8,1,9,test_reg_rw,Register_File
+35.6,28.4,22,850,250,15,1,test_interconnect_stress,Bus_Interconnect
+95.2,91.8,0,95,4,0,8,test_interrupt_timer,Interrupt_Handler

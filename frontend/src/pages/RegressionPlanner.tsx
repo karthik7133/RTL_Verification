@@ -22,7 +22,7 @@ const RegressionPlanner = () => {
             setPlan(result);
         } catch (err: any) {
             const msg = err.message?.includes('fetch')
-                ? "Cannot connect to ML API. Make sure the Flask server is running on port 5001."
+                ? "Cannot connect to ML API. Please check if the Hugging Face Space is running."
                 : err.message || "Unknown error";
             setError(msg);
         } finally {

@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
-
-const ML_BASE = import.meta.env.VITE_ML_API_URL || "http://localhost:5001";
+import { ML_BASE } from '../api/apiClient';
 
 // ── Shared types ──────────────────────────────────────────────────────────────
 export interface AnalyzedRun {
@@ -100,7 +99,7 @@ export const CsvProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             });
         } catch (err: any) {
             const msg = err.message?.includes("fetch")
-                ? "Cannot connect to ML API. Make sure the Flask server is running on port 5001."
+                ? "Cannot connect to ML API. Please check if the Hugging Face Space is running."
                 : err.message || "Unknown error";
             console.error(`[Client] Upload error: ${msg}`);
             setError(msg);
