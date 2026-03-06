@@ -1,4 +1,4 @@
-# Logs
+# ── Logs ──────────────────────────────────────────────────────────────────────
 logs
 *.log
 npm-debug.log*
@@ -7,24 +7,24 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-# Node modules - ignore all of them everywhere
+# ── Node modules ───────────────────────────────────────────────────────────────
 node_modules/
 */node_modules/
 
-# Build outputs
+# ── Build outputs ─────────────────────────────────────────────────────────────
 dist/
 dist-ssr/
 build/
 .next/
 
-# Environment files
+# ── Environment files ─────────────────────────────────────────────────────────
 .env
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
 
-# Editor directories and files
+# ── Editor ────────────────────────────────────────────────────────────────────
 .vscode/*
 !.vscode/extensions.json
 .idea
@@ -34,3 +34,36 @@ build/
 *.njsproj
 *.sln
 *.sw?
+
+# ── Python ────────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+.Python
+venv/
+.venv/
+env/
+ENV/
+*.egg-info/
+.pytest_cache/
+
+# ── ML Model — large binary/data files (too big for GitHub) ──────────────────
+# Trained model binary (~1.8 MB)
+ml_model/*.pkl
+# XGBoost JSON model (~2.8 MB)
+ml_model/*.json
+!ml_model/feature_columns.json
+# Large training datasets (6–7 MB each)
+ml_model/rtl_verification_dataset.csv
+ml_model/rtl_verification_dataset_clean.csv
+# Jupyter notebook outputs (can be very large)
+ml_model/*.ipynb
+
+# ── Gemini AI brain / artifacts (local only) ──────────────────────────────────
+.gemini/
+
+# ── OS ────────────────────────────────────────────────────────────────────────
+Thumbs.db
+ehthumbs.db
+Desktop.ini

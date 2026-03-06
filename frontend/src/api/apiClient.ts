@@ -1,21 +1,25 @@
-// Mock Data models
-export interface DashboardPrediction {
-    run_id: string;
-    module: string;
-    status: 'PASS' | 'FAIL';
-    risk_score: number;
-}
+/**
+ * RTL Verification — API Client
+ * All fetch calls target the ML Flask server on http://localhost:5001.
+ * Uses cache:"no-store" so stale results never appear when backend is off.
+ * The primary analysis flow is: uploadAndAnalyze() via CsvContext.
+ * This file handles /health, /predict (run details), and /regression-plan.
+ */
 
+const ML_BASE = "http://localhost:5001";
+
+// Re-export types used across components
+export type { AnalyzedRun, AnalysisSummary, AnalysisResult } from '../context/CsvContext';
+
+// ── DetailsPanel run details (from /predict) ──────────────────────────────────
 export interface RunDetails {
-    probability: string;
-    explanation: string[];
-    similar_runs: Array<{
-        run_id: string;
-        similarity: string;
-        bug_type: string;
-    }>;
+    failure_probability_pct: number;
+    risk_level: string;
+    result: string;
+    explanation: string;
 }
 
+// ── Regression Planner types ──────────────────────────────────────────────────
 export interface PlanSummary {
     selected_tests: number;
     total_runtime: string;
@@ -37,61 +41,102 @@ export interface RegressionPlan {
     plan: PlanItem[];
 }
 
-// Mock API Client
+export interface HealthStatus {
+    status: string;
+    model: string;
+    features: number;
+    timestamp: string;
+}
+
+// ── API Client ────────────────────────────────────────────────────────────────
 export const apiClient = {
-    uploadCSV: async (_file: File) => {
-        // Simulate network delay
-        await new Promise((resolve) => setTimeout(resolve, 800));
-        return { status: "success", message: "CSV Loaded", total_runs: 5000 };
+
+    /** Health check — used by Layout sidebar to show model status */
+    checkHealth: async (): Promise<HealthStatus> => {
+        console.log(`[Client] GET ${ML_BASE}/health`);
+        const res = await fetch(`${ML_BASE}/health`, { cache: "no-store" });
+        if (!res.ok) throw new Error("Health check failed");
+        const data = await res.json();
+        console.log(`[Client] Health: ${data.status} — ${data.features} features`);
+        return data;
     },
 
-    getDashboardPredictions: async (): Promise<DashboardPrediction[]> => {
-        await new Promise((resolve) => setTimeout(resolve, 500));
-        return [
-            { run_id: "R-101", module: "ALU_Core", status: "FAIL", risk_score: 0.92 },
-            { run_id: "R-102", module: "FPU_Add", status: "PASS", risk_score: 0.15 },
-            { run_id: "R-103", module: "Mem_Ctrl", status: "FAIL", risk_score: 0.78 },
-            { run_id: "R-104", module: "PCIe_Phy", status: "FAIL", risk_score: 0.88 },
-            { run_id: "R-105", module: "L2_Cache", status: "PASS", risk_score: 0.05 },
-            { run_id: "R-106", module: "UART_Rx", status: "FAIL", risk_score: 0.65 },
-            { run_id: "R-107", module: "I2C_Master", status: "PASS", risk_score: 0.12 },
-            { run_id: "R-108", module: "ALU_Core", status: "FAIL", risk_score: 0.95 },
-        ];
-    },
-
-    getRunDetails: async (_runId: string): Promise<RunDetails> => {
-        await new Promise((resolve) => setTimeout(resolve, 300));
+    /**
+     * POST /predict
+     * Gets ML prediction for a specific run (used by DetailsPanel).
+     */
+    getRunDetails: async (run: any): Promise<RunDetails> => {
+        const payload = {
+            code_coverage: run.code_coverage,
+            functional_coverage: run.functional_coverage,
+            assertions_failed: run.assertions_failed,
+            simulation_time: run.simulation_time ?? 200,
+            lines_modified: run.lines_modified,
+            prior_failures: run.prior_failures,
+            engineer_experience: run.engineer_experience,
+            module: run.module,
+            test_name: run.test_name,
+        };
+        console.log(`[Client] POST ${ML_BASE}/predict`, payload);
+        const res = await fetch(`${ML_BASE}/predict`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+            cache: "no-store",
+        });
+        if (!res.ok) throw new Error(`Predict API error: ${res.status}`);
+        const data = await res.json();
+        console.log(`[Client] Predict result: ${data.result} — ${data.failure_probability_pct}%`);
         return {
-            probability: "92%",
-            explanation: [
-                "High cyclomatic complexity (45)",
-                "ALU overflow assertion failed previously",
-                "Recent code churn"
-            ],
-            similar_runs: [
-                { run_id: "R-089", similarity: "88%", bug_type: "Timing_Violation" },
-                { run_id: "R-012", similarity: "82%", bug_type: "Logic_Error" },
-                { run_id: "R-045", similarity: "76%", bug_type: "State_Machine_Stuck" }
-            ]
+            failure_probability_pct: data.failure_probability_pct,
+            risk_level: data.risk_level,
+            result: data.result,
+            explanation: data.explanation,
         };
     },
 
-    getSmartPlan: async (_budgetMinutes: number): Promise<RegressionPlan> => {
-        await new Promise((resolve) => setTimeout(resolve, 1000));
+    /**
+     * POST /regression-plan
+     * Sends the user's uploaded runs + time budget. Returns optimized order.
+     */
+    getSmartPlan: async (runs: any[], budgetSeconds: number): Promise<RegressionPlan> => {
+        console.log(`[Client] POST ${ML_BASE}/regression-plan — ${runs.length} runs, budget: ${budgetSeconds}s`);
+        const res = await fetch(`${ML_BASE}/regression-plan`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ runs, time_budget: budgetSeconds }),
+            cache: "no-store",
+        });
+        if (!res.ok) throw new Error(`Regression-plan API error: ${res.status}`);
+        const json = await res.json();
+        console.log(`[Client] Plan: ${json.selected_count} selected, ${json.total_estimated_time}s`);
+
+        const totalSubmitted = runs.length;
+        const skippedPct = totalSubmitted > 0
+            ? Math.round((1 - json.selected_count / totalSubmitted) * 100)
+            : 0;
+
+        const plan: PlanItem[] = (json.selected_runs as any[]).map((run: any, idx: number) => ({
+            rank: idx + 1,
+            test_name: run.test_name ?? "unknown_test",
+            module: run.module ?? "Unknown",
+            risk: run.failure_probability,
+            runtime: `${run.estimated_time}s`,
+            reason: run.failure_probability > 0.75
+                ? "Critical risk — run immediately"
+                : run.failure_probability > 0.5
+                    ? "High failure probability"
+                    : "Moderate complexity — include for coverage",
+        }));
+
         return {
             summary: {
-                selected_tests: 12,
-                total_runtime: "18.5 mins",
-                coverage: "94%",
-                time_saved: "85%"
+                selected_tests: json.selected_count,
+                total_runtime: `${json.total_estimated_time}s`,
+                coverage: `${json.coverage_pct}%`,
+                time_saved: `${skippedPct}%`,
             },
-            plan: [
-                { rank: 1, test_name: "alu_rand_test", module: "ALU_Core", risk: 0.95, runtime: "1.2m", reason: "Max risk coverage" },
-                { rank: 2, test_name: "fpu_corner_cases", module: "FPU_Add", risk: 0.89, runtime: "2.1m", reason: "High code churn" },
-                { rank: 3, test_name: "mem_stress_test", module: "Mem_Ctrl", risk: 0.85, runtime: "3.5m", reason: "Historical failure density" },
-                { rank: 4, test_name: "pcie_link_training", module: "PCIe_Phy", risk: 0.82, runtime: "4.0m", reason: "Critical path timing issues" },
-                { rank: 5, test_name: "uart_baud_sweep", module: "UART_Rx", risk: 0.76, runtime: "1.5m", reason: "High complexity score" },
-            ]
+            plan,
         };
-    }
+    },
 };

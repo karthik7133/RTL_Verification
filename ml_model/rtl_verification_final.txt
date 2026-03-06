@@ -1,0 +1,390 @@
+# pip install xgboost
+
+import pandas as pd
+import numpy as np
+
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score, classification_report, roc_auc_score
+
+from xgboost import XGBClassifier
+
+import pandas as pd
+import numpy as np
+
+np.random.seed(42)
+
+n = 50000
+
+modules = [
+    "ALU",
+    "Instruction_Decoder",
+    "Memory_Controller",
+    "Cache_Controller",
+    "Bus_Interface",
+    "DMA_Engine",
+    "Interrupt_Controller"
+]
+
+tests = [
+    "memory_stress_test",
+    "cache_eviction_test",
+    "interrupt_test",
+    "dma_transfer_test",
+    "alu_overflow_test",
+    "pipeline_test",
+    "bus_protocol_test"
+]
+
+errors = [
+    "None",
+    "Assertion Failure",
+    "Timing Violation",
+    "Protocol Error",
+    "Overflow",
+    "Deadlock"
+]
+
+data = {
+    "regression_id": np.random.randint(1000, 2000, n),
+    "test_name": np.random.choice(tests, n),
+    "module": np.random.choice(modules, n),
+    "seed": np.random.randint(1, 100000, n),
+    "code_coverage": np.random.uniform(50, 100, n),
+    "functional_coverage": np.random.uniform(40, 100, n),
+    "assertions_failed": np.random.randint(0, 5, n),
+    "simulation_time": np.random.uniform(20, 500, n),
+    "lines_modified": np.random.randint(0, 200, n),
+    "prior_failures": np.random.randint(0, 10, n),
+    "engineer_experience": np.random.randint(1, 10, n),
+    "error_type": np.random.choice(errors, n)
+}
+
+df = pd.DataFrame(data)
+
+# realistic failure probability
+failure_score = (
+    (100 - df["code_coverage"]) * 0.03
+    + (100 - df["functional_coverage"]) * 0.02
+    + df["lines_modified"] * 0.01
+    + df["prior_failures"] * 0.3
+    + df["assertions_failed"] * 0.4
+)
+
+df["result"] = (failure_score > 4).astype(int)
+
+df.to_csv("rtl_verification_dataset.csv", index=False)
+
+print("Dataset generated:", df.shape)
+
+df = pd.read_csv("rtl_verification_dataset.csv")
+
+print("Dataset shape:", df.shape)
+
+df.head()
+
+df = df.drop(
+    columns=[
+        "regression_id",
+        "seed",
+        "error_type"
+    ],
+    errors="ignore"
+)
+
+df.head()
+
+# Feature Engineering
+
+if "lines_changed" in df.columns and "previous_failures" in df.columns:
+    df["change_risk"] = df["lines_changed"] * df["previous_failures"]
+
+if "previous_failures" in df.columns and "days_since_last_change" in df.columns:
+    df["failure_density"] = df["previous_failures"] / (df["days_since_last_change"] + 1)
+
+if "lines_changed" in df.columns and "coverage_gain" in df.columns:
+    df["change_intensity"] = df["lines_changed"] / (df["coverage_gain"] + 0.1)
+
+if "lines_changed" in df.columns and "previous_failures" in df.columns and "coverage_gain" in df.columns:
+    df["risk_score"] = (
+        df["lines_changed"] * 0.4 +
+        df["previous_failures"] * 0.4 +
+        df["coverage_gain"] * 0.2
+    )
+
+df.head()
+
+categorical_cols = df.select_dtypes(include="object").columns
+
+print("Encoding columns:", categorical_cols)
+
+df = pd.get_dummies(
+    df,
+    columns=categorical_cols,
+    drop_first=True
+)
+
+df.head()
+
+X = df.drop("result", axis=1)
+
+y = df["result"]
+
+print("Features:", len(X.columns))
+
+df = df.rename(columns={
+    "lines_modified": "lines_changed",
+    "prior_failures": "previous_failures",
+    "result": "pass_fail"
+})
+
+df["change_risk"] = df["lines_changed"] * df["previous_failures"]
+
+df.to_csv("rtl_verification_dataset_clean.csv", index=False)
+
+import pandas as pd
+
+df = pd.read_csv("rtl_verification_dataset_clean.csv")
+
+print(df.head())
+print(df.info())
+print(df.describe())
+
+from sklearn.model_selection import train_test_split
+
+X_train, X_test, y_train, y_test = train_test_split(
+    X,
+    y,
+    test_size=0.2,
+    random_state=42
+)
+
+from xgboost import XGBClassifier
+
+model = XGBClassifier(
+    n_estimators=400,
+    max_depth=6,
+    learning_rate=0.05,
+    subsample=0.8,
+    colsample_bytree=0.8,
+    eval_metric="logloss",
+    random_state=42
+)
+
+model.fit(X_train, y_train)
+model.save_model('rtl_failure_predictor.json')
+print("Model saved as rtl_failure_predictor.json")
+
+from sklearn.metrics import accuracy_score, classification_report
+
+pred = model.predict(X_test)
+
+print("Accuracy:", accuracy_score(y_test, pred))
+print(classification_report(y_test, pred))
+
+from sklearn.metrics import roc_auc_score
+
+probs = model.predict_proba(X_test)[:,1]
+
+print("ROC AUC:", roc_auc_score(y_test, probs))
+
+# Example new verification run
+
+sample = pd.DataFrame({
+    "code_coverage": [70],
+    "functional_coverage": [65],
+    "assertions_failed": [2],
+    "simulation_time": [200],
+    "lines_modified": [120],
+    "prior_failures": [5],
+    "engineer_experience": [3],
+    "risk_score": [120*0.3 + 5*2 + 2*3]
+})
+
+# Add missing encoded columns
+sample = sample.reindex(columns=X.columns, fill_value=0)
+
+# Predict result
+prediction = model.predict(sample)
+
+# Predict probability
+prob = model.predict_proba(sample)
+
+print("Prediction (0 = Pass, 1 = Fail):", prediction[0])
+print("Failure Probability:", prob[0][1])
+
+examples = pd.DataFrame({
+
+    "code_coverage":[95, 75, 60],
+    "functional_coverage":[90, 70, 55],
+    "assertions_failed":[0, 2, 4],
+    "simulation_time":[150, 220, 300],
+    "lines_modified":[20, 90, 160],
+    "prior_failures":[1, 4, 8],
+    "engineer_experience":[8, 5, 2]
+
+})
+
+# create risk score
+examples["risk_score"] = (
+    examples["lines_modified"]*0.3 +
+    examples["prior_failures"]*2 +
+    examples["assertions_failed"]*3
+)
+
+# match training columns
+examples = examples.reindex(columns=X.columns, fill_value=0)
+
+# predictions
+predictions = model.predict(examples)
+probabilities = model.predict_proba(examples)[:,1]
+
+results = pd.DataFrame({
+    "Prediction (0=Pass,1=Fail)": predictions,
+    "Failure Probability": probabilities
+})
+
+print(results)
+
+# Predict failure probability for entire dataset
+
+df["failure_probability"] = model.predict_proba(X)[:,1]
+
+# sort by risk
+risk_ranking = df.sort_values(by="failure_probability", ascending=False)
+
+risk_ranking.head(10)
+
+#similarity
+from sklearn.neighbors import NearestNeighbors
+
+# automatically select numeric columns
+features = df.select_dtypes(include=["int64", "float64"])
+
+print("Using features:", features.columns)
+
+# build nearest neighbor model
+nn = NearestNeighbors(n_neighbors=5)
+
+nn.fit(features)
+
+def find_similar_runs(index):
+
+    query = features.iloc[[index]]
+
+    distances, indices = nn.kneighbors(query)
+
+    return df.iloc[indices[0]]
+
+find_similar_runs(0)
+
+# regression plan
+def smart_regression_plan(df, time_budget):
+
+    sorted_df = df.sort_values(
+        by="failure_probability",
+        ascending=False
+    )
+
+    selected = []
+    runtime = 0
+
+    for i, row in sorted_df.iterrows():
+
+        test_time = np.random.randint(20,120)
+
+        if runtime + test_time <= time_budget:
+
+            selected.append(i)   # use index instead of test_name
+            runtime += test_time
+
+    return selected, runtime
+
+
+tests, runtime = smart_regression_plan(risk_ranking, 500)
+
+print("Selected Test Indices:", tests)
+print("Total Runtime:", runtime)
+
+plt.figure(figsize=(8,5))
+
+sns.histplot(df["failure_probability"], bins=30)
+
+plt.title("Failure Probability Distribution")
+
+# plt.show()
+
+def show_error_details(index):
+
+    row = df.iloc[index]
+
+    print("------ Verification Run Details ------")
+
+    print("Module:", row.get("module", "N/A"))
+    print("Test Name:", row.get("test_name", "N/A"))
+
+    print("\nCoverage Information")
+    print("Code Coverage:", row.get("code_coverage", "N/A"))
+    print("Functional Coverage:", row.get("functional_coverage", "N/A"))
+
+    print("\nFailure Indicators")
+    print("Assertions Failed:", row.get("assertions_failed", "N/A"))
+    print("Lines Modified:", row.get("lines_modified", "N/A"))
+    print("Prior Failures:", row.get("prior_failures", "N/A"))
+
+    print("\nEngineer Info")
+    print("Engineer Experience:", row.get("engineer_experience", "N/A"))
+
+    if "failure_probability" in df.columns:
+        print("\nAI Prediction")
+        print("Failure Probability:", round(row["failure_probability"],3))
+
+    if "result" in df.columns:
+        status = "FAIL" if row["result"] == 1 else "PASS"
+        print("Actual Result:", status)
+
+show_error_details(0)
+
+import json
+from datetime import datetime
+
+def generate_failure_log(index):
+
+    row = df.iloc[index]
+
+    # determine status safely
+    if "result" in df.columns:
+        status = "FAIL" if row["result"] == 1 else "PASS"
+    else:
+        status = "UNKNOWN"
+
+    log = {
+        "run_id": f"HIST-{1000+index}",
+        "timestamp": datetime.now().isoformat(),
+
+        "test_name": row.get("test_name", "unknown"),
+        "status": status,
+
+        "hardware_context": {
+            "module_path": row.get("module", "unknown"),
+            "assertion_name": f"assert_{row.get('module','module').lower()}_check"
+        },
+
+        "error_details": {
+            "error_signature": "ASSERTION_FAILURE" if row.get("assertions_failed",0) > 0 else "TIMEOUT",
+            "error_text": f"{row.get('assertions_failed',0)} assertions failed during simulation",
+            "bug_type": "Protocol_Violation" if row.get("assertions_failed",0) > 2 else "Logic_Error"
+        },
+
+        "ml_features": {
+            "risk_score_at_time": float(row.get("risk_score",0)),
+            "failure_probability": float(row.get("failure_probability",0))
+        }
+    }
+
+    print(json.dumps(log, indent=2))
+
+
+generate_failure_log(5)
